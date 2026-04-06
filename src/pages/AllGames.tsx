@@ -5,6 +5,7 @@ import memory from '../gamesImg/memorygames.png'
 import tictactoe from '../gamesImg/tictactoe.png'
 import buirdgame from '../gamesImg/buirdgame.png'
 import sudoku from '../gamesImg/sudoku.png'
+import numbergame from '../gamesImg/numbergames.png'
 
 
 import { Link } from "react-router-dom";
@@ -95,7 +96,7 @@ const games = [
     emoji: "🎯",
     color: "#7209B7", // Deep Violet
     glow: "rgba(114,9,183,0.35)",
-    img: sudoku,
+    img: numbergame,
     desc: "Master the numbers and beat the high score.",
     players: "1 Player",
     difficulty: ["Medium", "Low", "Hard"],
