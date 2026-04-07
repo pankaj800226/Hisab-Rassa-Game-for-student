@@ -1,7 +1,13 @@
+import { ArrowBigDown, ArrowBigLeft, ArrowBigRight, ArrowBigUp, Target, Settings, RotateCcw, X } from "lucide-react";
 import { useEffect, useState, useCallback, useRef, type JSX } from "react";
 
 const NumberGames = (): JSX.Element => {
-    const [board, setBoard] = useState<number[][]>([]);
+    const [board, setBoard] = useState<number[][]>([
+        [0, 0, 0, 0],
+        [0, 0, 0, 0],
+        [0, 0, 0, 0],
+        [0, 0, 0, 0]
+    ]);
     const [score, setScore] = useState(0);
     const [bestScore, setBestScore] = useState(() => {
         const saved = localStorage.getItem("2048-best-score");
@@ -11,14 +17,20 @@ const NumberGames = (): JSX.Element => {
     const [won, setWon] = useState(false);
     const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
     const [showRules, setShowRules] = useState(true);
+    const [targetNumber, setTargetNumber] = useState<number>(2048);
+    const [customTarget, setCustomTarget] = useState<string>("2048");
+    const [showTargetSelector, setShowTargetSelector] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
 
+    // Preset target options
+    const targetPresets = [512, 1024, 2048, 4096, 8192];
+
     // Add random tile (2 or 4)
-    const addRandomTile = useCallback((board: number[][]) => {
+    const addRandomTile = useCallback((boardGrid: number[][]): number[][] => {
         const emptyCells: { row: number; col: number }[] = [];
         for (let i = 0; i < 4; i++) {
             for (let j = 0; j < 4; j++) {
-                if (board[i][j] === 0) {
+                if (boardGrid[i][j] === 0) {
                     emptyCells.push({ row: i, col: j });
                 }
             }
@@ -26,21 +38,23 @@ const NumberGames = (): JSX.Element => {
 
         if (emptyCells.length > 0) {
             const { row, col } = emptyCells[Math.floor(Math.random() * emptyCells.length)];
-            board[row][col] = Math.random() < 0.9 ? 2 : 4;
+            const newBoard = boardGrid.map(r => [...r]);
+            newBoard[row][col] = Math.random() < 0.9 ? 2 : 4;
+            return newBoard;
         }
+        return boardGrid;
     }, []);
 
     // Initialize game
     const initGame = useCallback(() => {
-        const newBoard = [
+        let newBoard = [
             [0, 0, 0, 0],
             [0, 0, 0, 0],
             [0, 0, 0, 0],
             [0, 0, 0, 0]
         ];
-
-        addRandomTile(newBoard);
-        addRandomTile(newBoard);
+        newBoard = addRandomTile(newBoard);
+        newBoard = addRandomTile(newBoard);
 
         setBoard(newBoard);
         setScore(0);
@@ -49,21 +63,44 @@ const NumberGames = (): JSX.Element => {
     }, [addRandomTile]);
 
     // Check if move is possible
-    const isMovePossible = useCallback((board: number[][]): boolean => {
+    const isMovePossible = useCallback((boardGrid: number[][]): boolean => {
         for (let i = 0; i < 4; i++) {
             for (let j = 0; j < 4; j++) {
-                if (board[i][j] === 0) return true;
+                if (boardGrid[i][j] === 0) return true;
             }
         }
 
         for (let i = 0; i < 4; i++) {
             for (let j = 0; j < 4; j++) {
-                if (j < 3 && board[i][j] === board[i][j + 1]) return true;
-                if (i < 3 && board[i][j] === board[i + 1][j]) return true;
+                if (j < 3 && boardGrid[i][j] === boardGrid[i][j + 1]) return true;
+                if (i < 3 && boardGrid[i][j] === boardGrid[i + 1][j]) return true;
             }
         }
 
         return false;
+    }, []);
+
+    // Check win condition based on target number
+    const checkWinCondition = useCallback((boardGrid: number[][]): boolean => {
+        for (let i = 0; i < 4; i++) {
+            for (let j = 0; j < 4; j++) {
+                if (boardGrid[i][j] >= targetNumber) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }, [targetNumber]);
+
+    // Get highest tile value
+    const getMaxTileValue = useCallback((boardGrid: number[][]): number => {
+        let maxVal = 0;
+        for (let i = 0; i < 4; i++) {
+            for (let j = 0; j < 4; j++) {
+                if (boardGrid[i][j] > maxVal) maxVal = boardGrid[i][j];
+            }
+        }
+        return maxVal;
     }, []);
 
     // Move tiles
@@ -73,14 +110,14 @@ const NumberGames = (): JSX.Element => {
         let newBoard = board.map(row => [...row]);
         let scoreAdded = 0;
 
-        const moveLeft = (board: number[][]): { newBoard: number[][], score: number } => {
-            let score = 0;
-            const newBoard = board.map(row => {
+        const moveLeft = (boardGrid: number[][]): { newBoard: number[][], score: number } => {
+            let scoreVal = 0;
+            const resultBoard = boardGrid.map(row => {
                 let filtered = row.filter(num => num !== 0);
                 for (let i = 0; i < filtered.length - 1; i++) {
                     if (filtered[i] === filtered[i + 1]) {
                         filtered[i] *= 2;
-                        score += filtered[i];
+                        scoreVal += filtered[i];
                         filtered.splice(i + 1, 1);
                     }
                 }
@@ -89,11 +126,11 @@ const NumberGames = (): JSX.Element => {
                 }
                 return filtered;
             });
-            return { newBoard, score };
+            return { newBoard: resultBoard, score: scoreVal };
         };
 
-        const moveRight = (board: number[][]): { newBoard: number[][], score: number } => {
-            const reversed = board.map(row => [...row].reverse());
+        const moveRight = (boardGrid: number[][]): { newBoard: number[][], score: number } => {
+            const reversed = boardGrid.map(row => [...row].reverse());
             const result = moveLeft(reversed);
             return {
                 newBoard: result.newBoard.map(row => row.reverse()),
@@ -101,20 +138,22 @@ const NumberGames = (): JSX.Element => {
             };
         };
 
-        const moveUp = (board: number[][]): { newBoard: number[][], score: number } => {
-            const transposed = board[0].map((_, col) => board.map(row => row[col]));
+        const moveUp = (boardGrid: number[][]): { newBoard: number[][], score: number } => {
+            const transposed = boardGrid[0].map((_, col) => boardGrid.map(row => row[col]));
             const result = moveLeft(transposed);
+            const untransposed = result.newBoard[0].map((_, col) => result.newBoard.map(row => row[col]));
             return {
-                newBoard: result.newBoard[0].map((_, col) => result.newBoard.map(row => row[col])),
+                newBoard: untransposed,
                 score: result.score
             };
         };
 
-        const moveDown = (board: number[][]): { newBoard: number[][], score: number } => {
-            const transposed = board[0].map((_, col) => board.map(row => row[col]));
+        const moveDown = (boardGrid: number[][]): { newBoard: number[][], score: number } => {
+            const transposed = boardGrid[0].map((_, col) => boardGrid.map(row => row[col]));
             const result = moveRight(transposed);
+            const untransposed = result.newBoard[0].map((_, col) => result.newBoard.map(row => row[col]));
             return {
-                newBoard: result.newBoard[0].map((_, col) => result.newBoard.map(row => row[col])),
+                newBoard: untransposed,
                 score: result.score
             };
         };
@@ -131,6 +170,7 @@ const NumberGames = (): JSX.Element => {
         newBoard = result.newBoard;
         scoreAdded = result.score;
 
+        // Check if board changed
         let changed = false;
         for (let i = 0; i < 4; i++) {
             for (let j = 0; j < 4; j++) {
@@ -142,29 +182,46 @@ const NumberGames = (): JSX.Element => {
         }
 
         if (changed) {
-            addRandomTile(newBoard);
+            newBoard = addRandomTile(newBoard);
             setBoard(newBoard);
-            setScore(prev => prev + scoreAdded);
-
             const newScore = score + scoreAdded;
+            setScore(newScore);
+
             if (newScore > bestScore) {
                 setBestScore(newScore);
                 localStorage.setItem("2048-best-score", newScore.toString());
             }
 
-            for (let i = 0; i < 4; i++) {
-                for (let j = 0; j < 4; j++) {
-                    if (newBoard[i][j] === 2048) {
-                        setWon(true);
-                    }
-                }
+            // Check win condition with target
+            if (checkWinCondition(newBoard)) {
+                setWon(true);
+                return;
             }
 
             if (!isMovePossible(newBoard)) {
                 setGameOver(true);
             }
         }
-    }, [board, gameOver, won, addRandomTile, score, bestScore, isMovePossible]);
+    }, [board, gameOver, won, addRandomTile, score, bestScore, isMovePossible, checkWinCondition]);
+
+    // Apply new target and restart
+    const applyTarget = () => {
+        let newTarget = parseInt(customTarget);
+        if (isNaN(newTarget) || newTarget < 4) {
+            newTarget = 2048;
+            setCustomTarget("2048");
+        }
+        setTargetNumber(newTarget);
+        setShowTargetSelector(false);
+        initGame();
+    };
+
+    const selectPresetTarget = (target: number) => {
+        setTargetNumber(target);
+        setCustomTarget(target.toString());
+        setShowTargetSelector(false);
+        initGame();
+    };
 
     // Keyboard controls
     useEffect(() => {
@@ -213,10 +270,10 @@ const NumberGames = (): JSX.Element => {
         initGame();
     }, [initGame]);
 
-    // Enhanced tile colors matching original 2048 aesthetic perfectly
+    // Tile colors
     const getTileColor = (value: number): string => {
         const colors: Record<number, string> = {
-            0: "#cdc1b4",
+            0: "rgba(255,255,255,0.05)",
             2: "#eee4da",
             4: "#ede0c8",
             8: "#f2b179",
@@ -229,7 +286,8 @@ const NumberGames = (): JSX.Element => {
             1024: "#edc53f",
             2048: "#edc22e",
         };
-        return colors[value] || "#3c3a32";
+        if (value > 2048) return "linear-gradient(135deg, #edc53f, #e67e22)";
+        return colors[value] || "rgba(255,255,255,0.1)";
     };
 
     const getTextColor = (value: number): string => {
@@ -237,10 +295,14 @@ const NumberGames = (): JSX.Element => {
     };
 
     const getTextSize = (value: number): string => {
-        if (value >= 1000) return "24px";
-        if (value >= 100) return "28px";
+        if (value >= 10000) return "18px";
+        if (value >= 1000) return "22px";
+        if (value >= 100) return "26px";
         return "32px";
     };
+
+    const maxTileValue = getMaxTileValue(board);
+    const progress = Math.min(100, (maxTileValue / targetNumber) * 100);
 
     return (
         <>
@@ -248,7 +310,7 @@ const NumberGames = (): JSX.Element => {
             <div className="game2048-root">
                 <div className="game2048-container" ref={containerRef}>
 
-                    {/* Rules Panel - Shows first time */}
+                    {/* Rules Panel */}
                     {showRules && (
                         <div className="game2048-rules-panel">
                             <div className="game2048-rules-header">
@@ -260,8 +322,8 @@ const NumberGames = (): JSX.Element => {
                                 <div className="game2048-rule-item">
                                     <span className="game2048-rule-icon">🎯</span>
                                     <div>
-                                        <strong>Goal:</strong>
-                                        <p>Merge numbers to create <span style={{ color: "#edc22e" }}>2048</span> tile!</p>
+                                        <strong>Custom Target!</strong>
+                                        <p>Set your own winning number - reach or exceed it to WIN!</p>
                                     </div>
                                 </div>
                                 <div className="game2048-rule-item">
@@ -278,13 +340,6 @@ const NumberGames = (): JSX.Element => {
                                         <p>Same numbers merge: <strong>2+2=4, 4+4=8, 8+8=16...</strong></p>
                                     </div>
                                 </div>
-                                <div className="game2048-rule-item">
-                                    <span className="game2048-rule-icon">💡</span>
-                                    <div>
-                                        <strong>Tips:</strong>
-                                        <p>Keep largest number in corner • Plan your moves • Don't rush!</p>
-                                    </div>
-                                </div>
                             </div>
                             <button className="game2048-rules-btn" onClick={() => setShowRules(false)}>Start Playing →</button>
                         </div>
@@ -294,7 +349,7 @@ const NumberGames = (): JSX.Element => {
                     <div className="game2048-header">
                         <div className="game2048-logo">
                             <span className="game2048-logo-2048">2048</span>
-                            <span className="game2048-logo-badge">Number Puzzle Game</span>
+                            <span className="game2048-logo-badge">Custom Target Mode</span>
                         </div>
                         <div className="game2048-scores">
                             <div className="game2048-score-card">
@@ -308,19 +363,23 @@ const NumberGames = (): JSX.Element => {
                         </div>
                     </div>
 
-                    {/* Instructions for Mobile */}
-                    <div className="game2048-instructions">
-                        <div className="game2048-instru-box">
-                            <span>⌨️ Keyboard</span>
-                            <span className="game2048-keys">← ↑ → ↓</span>
+                    {/* Target Display & Progress Bar */}
+                    <div className="game2048-target-section">
+                        <div className="game2048-target-info">
+                            <div className="game2048-target-badge">
+                                <Target size={18} />
+                                <span>TARGET: {targetNumber.toLocaleString()}</span>
+                            </div>
+                            <button className="game2048-target-btn" onClick={() => setShowTargetSelector(true)}>
+                                <Settings size={16} />
+                                Change Target
+                            </button>
                         </div>
-                        <div className="game2048-instru-box">
-                            <span>👆 Mobile</span>
-                            <span>Swipe anywhere</span>
-                        </div>
-                        <div className="game2048-instru-box">
-                            <span>🎯 Goal</span>
-                            <span>Make 2048!</span>
+                        <div className="game2048-progress-container">
+                            <div className="game2048-progress-bar" style={{ width: `${progress}%` }}></div>
+                            <div className="game2048-progress-text">
+                                Highest Tile: {maxTileValue.toLocaleString()} / {targetNumber.toLocaleString()}
+                            </div>
                         </div>
                     </div>
 
@@ -337,8 +396,8 @@ const NumberGames = (): JSX.Element => {
                                         key={`${i}-${j}`}
                                         className="game2048-cell"
                                         style={{
-                                            backgroundColor: getTileColor(cell),
-                                            boxShadow: cell !== 0 ? "0 0 10px rgba(0,0,0,0.1)" : "none"
+                                            background: cell === 0 ? "rgba(255,255,255,0.05)" : getTileColor(cell),
+                                            boxShadow: cell !== 0 ? "0 4px 15px rgba(0,0,0,0.2)" : "none"
                                         }}
                                     >
                                         {cell !== 0 && (
@@ -361,55 +420,67 @@ const NumberGames = (): JSX.Element => {
                     {/* Mobile Arrow Controls */}
                     <div className="game2048-mobile-controls">
                         <div className="game2048-arrow-row">
-                            <button className="game2048-arrow-btn" onClick={() => move("up")}>⬆️</button>
+                            <button className="game2048-arrow-btn" onClick={() => move("up")}>
+                                <ArrowBigUp size={28} />
+                            </button>
                         </div>
                         <div className="game2048-arrow-row">
-                            <button className="game2048-arrow-btn" onClick={() => move("left")}>⬅️</button>
-                            <button className="game2048-arrow-btn" onClick={() => move("down")}>⬇️</button>
-                            <button className="game2048-arrow-btn" onClick={() => move("right")}>➡️</button>
+                            <button className="game2048-arrow-btn" onClick={() => move("left")}>
+                                <ArrowBigLeft size={28} />
+                            </button>
+                            <button className="game2048-arrow-btn" onClick={() => move("down")}>
+                                <ArrowBigDown size={28} />
+                            </button>
+                            <button className="game2048-arrow-btn" onClick={() => move("right")}>
+                                <ArrowBigRight size={28} />
+                            </button>
                         </div>
                     </div>
 
-                    {/* New Game Button */}
-                    <button className="game2048-new-btn" onClick={initGame}>
-                        🔄 New Game
-                    </button>
+                    {/* Action Buttons */}
+                    <div className="game2048-action-buttons">
+                        <button className="game2048-new-btn" onClick={initGame}>
+                            <RotateCcw size={18} />
+                            New Game
+                        </button>
+                    </div>
 
-                    {/* How to Play Section - Always visible */}
-                    <div className="game2048-howto">
-                        <div className="game2048-howto-header" onClick={() => {
-                            const content = document.querySelector('.game2048-howto-content');
-                            content?.classList.toggle('show');
-                        }}>
-                            <span>📖</span>
-                            <span>How to Play? (Click to expand)</span>
-                            <span>▼</span>
-                        </div>
-                        <div className="game2048-howto-content">
-                            <div className="game2048-howto-grid">
-                                <div className="game2048-howto-card">
-                                    <div className="game2048-howto-icon">🎯</div>
-                                    <h4>What is the Goal?</h4>
-                                    <p>Merge same numbers to create the <strong className="gold">2048 tile</strong>! When you make 2048, you WIN! 🏆</p>
+                    {/* Target Selector Modal */}
+                    {showTargetSelector && (
+                        <div className="game2048-modal-overlay" onClick={() => setShowTargetSelector(false)}>
+                            <div className="game2048-modal" onClick={(e) => e.stopPropagation()}>
+                                <div className="game2048-modal-header">
+                                    <h3><Target size={20} /> Select Your Target</h3>
+                                    <button onClick={() => setShowTargetSelector(false)}><X size={20} /></button>
                                 </div>
-                                <div className="game2048-howto-card">
-                                    <div className="game2048-howto-icon">🕹️</div>
-                                    <h4>How to Control?</h4>
-                                    <p><strong>Desktop:</strong> Use Arrow Keys (← ↑ → ↓)<br /><strong>Mobile:</strong> Swipe on screen or use arrow buttons below</p>
-                                </div>
-                                <div className="game2048-howto-card">
-                                    <div className="game2048-howto-icon">✨</div>
-                                    <h4>How Numbers Merge?</h4>
-                                    <p>When two <strong>SAME numbers</strong> touch, they merge into <strong>DOUBLE</strong>:<br />2+2=4, 4+4=8, 8+8=16, and so on!</p>
-                                </div>
-                                <div className="game2048-howto-card">
-                                    <div className="game2048-howto-icon">💡</div>
-                                    <h4>Pro Tips to Win!</h4>
-                                    <p>✅ Keep largest number in corner<br />✅ Build numbers in one direction<br />✅ Don't rush - plan your moves!<br />✅ Always leave empty space</p>
+                                <div className="game2048-modal-body">
+                                    <p>Choose a number to reach. Win when you meet or exceed it!</p>
+                                    <div className="game2048-presets">
+                                        {targetPresets.map(preset => (
+                                            <button
+                                                key={preset}
+                                                className={`game2048-preset-btn ${targetNumber === preset ? 'active' : ''}`}
+                                                onClick={() => selectPresetTarget(preset)}
+                                            >
+                                                {preset.toLocaleString()}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <div className="game2048-custom-input">
+                                        <input
+                                            type="number"
+                                            value={customTarget}
+                                            onChange={(e) => setCustomTarget(e.target.value)}
+                                            placeholder="Custom target..."
+                                            min="4"
+                                            step="2"
+                                        />
+                                        <button onClick={applyTarget}>Set Target</button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    )}
 
                     {/* Win/Lose Overlay */}
                     {(gameOver || won) && (
@@ -418,37 +489,42 @@ const NumberGames = (): JSX.Element => {
                                 borderColor: won ? "#edc22e" : "#f65e3b"
                             }}>
                                 <div className="game2048-overlay-icon">
-                                    {won ? "🏆" : "💀"}
+                                    {won ? "🏆✨" : "💀😢"}
                                 </div>
                                 <h2 className="game2048-overlay-title" style={{
                                     color: won ? "#edc22e" : "#f65e3b"
                                 }}>
-                                    {won ? "Congratulations! You Won! 🎉" : "Game Over! 😢"}
+                                    {won ? "You Won! 🎉" : "Game Over!"}
                                 </h2>
                                 {won ? (
                                     <>
                                         <p className="game2048-overlay-text">
-                                            Amazing! You reached 2048!
+                                            You reached <strong>{maxTileValue.toLocaleString()}</strong> which is ≥ your target of <strong>{targetNumber.toLocaleString()}</strong>!
                                         </p>
                                         <div className="game2048-overlay-stats">
                                             <div>🎯 Score: {score}</div>
                                             <div>🏆 Best: {bestScore}</div>
+                                            <div>🎲 Target: {targetNumber}</div>
                                         </div>
-                                        <p className="game2048-overlay-small">Want to play more? Try reaching 4096!</p>
-                                        <button className="game2048-overlay-btn" onClick={initGame}>
-                                            Play Again →
+                                        <p className="game2048-overlay-small">Want to try a higher target? Change it in settings!</p>
+                                        <button className="game2048-overlay-btn" onClick={() => { initGame(); setShowTargetSelector(true); }}>
+                                            Set New Target →
+                                        </button>
+                                        <button className="game2048-overlay-btn secondary" onClick={initGame}>
+                                            Play Again
                                         </button>
                                     </>
                                 ) : (
                                     <>
                                         <p className="game2048-overlay-text">
-                                            No more moves possible!
+                                            No more moves possible! Your highest tile was <strong>{maxTileValue.toLocaleString()}</strong>.
                                         </p>
                                         <div className="game2048-overlay-stats">
                                             <div>📊 Final Score: {score}</div>
                                             <div>🏆 Best Score: {bestScore}</div>
+                                            <div>🎯 Target: {targetNumber}</div>
                                         </div>
-                                        <p className="game2048-overlay-small">💡 Tip: Keep largest number in corner!</p>
+                                        <p className="game2048-overlay-small">💡 Tip: Try a smaller target to practice, or keep largest number in corner!</p>
                                         <button className="game2048-overlay-btn" onClick={initGame}>
                                             Try Again →
                                         </button>
@@ -474,15 +550,13 @@ const css = `
         -webkit-tap-highlight-color: transparent;
     }
     
-    /* Fixed background color: #080810 with matching grid pattern */
     .game2048-root {
         font-family: 'Inter', sans-serif;
         min-height: 100vh;
-        background: #080810;
+        background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 100%);
         background-image: 
-            linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
-        background-size: 40px 40px;
+            radial-gradient(circle at 20% 50%, rgba(255,255,255,0.02) 0%, transparent 50%),
+            repeating-linear-gradient(45deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 1px, transparent 1px, transparent 40px);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -490,43 +564,39 @@ const css = `
     }
     
     .game2048-container {
-        max-width: 600px;
+        max-width: 620px;
         width: 100%;
         margin: 0 auto;
     }
     
     /* Rules Panel */
     .game2048-rules-panel {
-        background: linear-gradient(135deg, #1a1a2e, #16213e);
-        border-radius: 20px;
-        padding: 20px;
+        background: linear-gradient(135deg, rgba(26,26,46,0.95), rgba(22,33,62,0.95));
+        backdrop-filter: blur(10px);
+        border-radius: 24px;
+        padding: 24px;
         margin-bottom: 20px;
         animation: slideDown 0.4s ease;
-        border: 1px solid rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,215,0,0.2);
+        box-shadow: 0 20px 40px rgba(0,0,0,0.3);
     }
     
     @keyframes slideDown {
-        from {
-            opacity: 0;
-            transform: translateY(-20px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
+        from { opacity: 0; transform: translateY(-30px); }
+        to { opacity: 1; transform: translateY(0); }
     }
     
     .game2048-rules-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        margin-bottom: 16px;
+        margin-bottom: 20px;
         padding-bottom: 12px;
-        border-bottom: 1px solid rgba(255,255,255,0.1);
+        border-bottom: 1px solid rgba(255,215,0,0.2);
     }
     
     .game2048-rules-header h3 {
-        color: white;
+        color: #feca57;
         font-size: 18px;
     }
     
@@ -538,29 +608,34 @@ const css = `
         background: rgba(255,255,255,0.1);
         border: none;
         color: white;
-        width: 30px;
-        height: 30px;
-        border-radius: 15px;
+        width: 32px;
+        height: 32px;
+        border-radius: 16px;
         cursor: pointer;
-        font-size: 16px;
+        font-size: 18px;
+        transition: all 0.2s;
+    }
+    
+    .game2048-rules-close:hover {
+        background: rgba(255,255,255,0.2);
     }
     
     .game2048-rules-content {
         display: flex;
         flex-direction: column;
-        gap: 12px;
-        margin-bottom: 16px;
+        gap: 16px;
+        margin-bottom: 20px;
     }
     
     .game2048-rule-item {
         display: flex;
-        gap: 12px;
+        gap: 14px;
         align-items: flex-start;
     }
     
     .game2048-rule-icon {
-        font-size: 24px;
-        min-width: 40px;
+        font-size: 28px;
+        min-width: 44px;
         text-align: center;
     }
     
@@ -572,21 +647,27 @@ const css = `
     }
     
     .game2048-rule-item p {
-        color: #ccc;
+        color: rgba(255,255,255,0.8);
         font-size: 13px;
-        line-height: 1.4;
+        line-height: 1.5;
     }
     
     .game2048-rules-btn {
         width: 100%;
-        padding: 12px;
-        background: linear-gradient(135deg, #feca57, #ff6b6b);
+        padding: 14px;
+        background: linear-gradient(135deg, #feca57, #ff8c42);
         border: none;
-        border-radius: 12px;
+        border-radius: 40px;
         font-weight: 700;
         color: #1a1a2e;
         cursor: pointer;
         font-size: 16px;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .game2048-rules-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 20px rgba(254,202,87,0.3);
     }
     
     /* Header */
@@ -605,18 +686,25 @@ const css = `
     }
     
     .game2048-logo-2048 {
-        font-size: 48px;
+        font-size: 52px;
         font-weight: 900;
-        background: linear-gradient(135deg, #feca57, #ff6b6b);
+        background: linear-gradient(135deg, #feca57, #ff8c42, #feca57);
+        background-size: 200% auto;
         -webkit-background-clip: text;
         background-clip: text;
         color: transparent;
         line-height: 1;
+        animation: shine 3s linear infinite;
+    }
+    
+    @keyframes shine {
+        0% { background-position: 0% center; }
+        100% { background-position: 200% center; }
     }
     
     .game2048-logo-badge {
         font-size: 10px;
-        color: rgba(255,255,255,0.7);
+        color: rgba(255,255,255,0.6);
         margin-top: 4px;
     }
     
@@ -626,67 +714,114 @@ const css = `
     }
     
     .game2048-score-card {
-        background: rgba(0,0,0,0.3);
-        border-radius: 12px;
-        padding: 8px 16px;
+        background: linear-gradient(135deg, rgba(0,0,0,0.4), rgba(0,0,0,0.2));
+        backdrop-filter: blur(5px);
+        border-radius: 16px;
+        padding: 10px 20px;
         text-align: center;
-        min-width: 80px;
+        min-width: 90px;
+        border: 1px solid rgba(255,255,255,0.1);
     }
     
     .game2048-score-label {
-        font-size: 10px;
+        font-size: 11px;
         font-weight: 600;
-        color: rgba(255,255,255,0.7);
+        color: rgba(255,255,255,0.6);
         letter-spacing: 1px;
     }
     
     .game2048-score-value {
-        font-size: 24px;
+        font-size: 28px;
         font-weight: 800;
         color: #feca57;
         margin-top: 4px;
     }
     
-    /* Instructions */
-    .game2048-instructions {
-        display: flex;
-        justify-content: center;
-        gap: 15px;
+    /* Target Section */
+    .game2048-target-section {
+        background: linear-gradient(135deg, rgba(0,0,0,0.3), rgba(0,0,0,0.2));
+        backdrop-filter: blur(5px);
+        border-radius: 20px;
+        padding: 16px 20px;
         margin-bottom: 20px;
+        border: 1px solid rgba(255,215,0,0.2);
+    }
+    
+    .game2048-target-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
         flex-wrap: wrap;
+        gap: 10px;
     }
     
-    .game2048-instru-box {
-        background: rgba(0,0,0,0.3);
-        border-radius: 10px;
-        padding: 8px 15px;
-        text-align: center;
+    .game2048-target-badge {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: linear-gradient(135deg, #feca57, #ff8c42);
+        padding: 6px 16px;
+        border-radius: 40px;
+        color: #1a1a2e;
+        font-weight: 700;
+        font-size: 14px;
     }
     
-    .game2048-instru-box span:first-child {
-        display: block;
-        font-size: 11px;
-        color: rgba(255,255,255,0.6);
-        margin-bottom: 4px;
-    }
-    
-    .game2048-instru-box span:last-child {
-        font-size: 13px;
-        font-weight: 600;
+    .game2048-target-btn {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.2);
+        padding: 6px 14px;
+        border-radius: 40px;
         color: white;
+        cursor: pointer;
+        font-size: 13px;
+        transition: all 0.2s;
     }
     
-    .game2048-keys {
-        font-family: monospace;
-        font-size: 16px !important;
+    .game2048-target-btn:hover {
+        background: rgba(255,255,255,0.2);
+    }
+    
+    .game2048-progress-container {
+        background: rgba(0,0,0,0.5);
+        border-radius: 30px;
+        height: 30px;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .game2048-progress-bar {
+        background: linear-gradient(90deg, #feca57, #ff8c42);
+        height: 100%;
+        border-radius: 30px;
+        transition: width 0.3s ease;
+        position: relative;
+    }
+    
+    .game2048-progress-text {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 11px;
+        font-weight: 700;
+        color: white;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        white-space: nowrap;
     }
     
     /* Board */
     .game2048-board {
-        background: #bbada0;
-        border-radius: 16px;
-        padding: 12px;
-        margin-bottom: 15px;
+        background: rgba(187,173,160,0.3);
+        backdrop-filter: blur(5px);
+        border-radius: 24px;
+        padding: 16px;
+        margin-bottom: 20px;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.3);
     }
     
     .game2048-row {
@@ -702,8 +837,8 @@ const css = `
     .game2048-cell {
         flex: 1;
         aspect-ratio: 1;
-        background: rgba(255,255,255,0.2);
-        border-radius: 12px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 16px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -712,8 +847,8 @@ const css = `
     }
     
     @keyframes pop {
-        0% { transform: scale(0.9); }
-        100% { transform: scale(1); }
+        0% { transform: scale(0.9); opacity: 0.5; }
+        100% { transform: scale(1); opacity: 1; }
     }
     
     .game2048-cell-value {
@@ -727,7 +862,7 @@ const css = `
         flex-direction: column;
         align-items: center;
         gap: 10px;
-        margin-bottom: 15px;
+        margin-bottom: 20px;
     }
     
     .game2048-arrow-row {
@@ -737,107 +872,165 @@ const css = `
     }
     
     .game2048-arrow-btn {
-        width: 65px;
-        padding: 12px;
-        background: rgba(0,0,0,0.4);
+        width: 70px;
+        padding: 14px;
+        background: linear-gradient(135deg, rgba(0,0,0,0.5), rgba(0,0,0,0.3));
+        backdrop-filter: blur(10px);
         border: 1px solid rgba(255,255,255,0.2);
-        border-radius: 12px;
-        font-size: 28px;
+        border-radius: 16px;
         cursor: pointer;
         transition: all 0.1s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #feca57;
     }
     
     .game2048-arrow-btn:active {
         transform: scale(0.95);
-        background: rgba(0,0,0,0.6);
+        background: rgba(0,0,0,0.7);
     }
     
-    /* New Game Button */
+    /* Action Buttons */
+    .game2048-action-buttons {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 20px;
+    }
+    
     .game2048-new-btn {
-        width: 100%;
-        padding: 14px;
-        background: linear-gradient(135deg, #feca57, #ff6b6b);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 32px;
+        background: linear-gradient(135deg, #feca57, #ff8c42);
         border: none;
-        border-radius: 12px;
-        font-size: 18px;
+        border-radius: 50px;
+        font-size: 16px;
         font-weight: 700;
         color: #1a1a2e;
         cursor: pointer;
-        margin-bottom: 20px;
-        font-family: 'Inter', sans-serif;
-        transition: transform 0.1s;
+        transition: all 0.2s;
     }
     
-    .game2048-new-btn:active {
-        transform: scale(0.98);
+    .game2048-new-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(254,202,87,0.4);
     }
     
-    /* How to Play Section */
-    .game2048-howto {
-        background: rgba(0,0,0,0.3);
-        border-radius: 16px;
-        overflow: hidden;
-        margin-top: 10px;
-    }
-    
-    .game2048-howto-header {
+    /* Modal */
+    .game2048-modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.8);
+        backdrop-filter: blur(8px);
         display: flex;
         align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        animation: fadeIn 0.3s ease;
+    }
+    
+    .game2048-modal {
+        background: linear-gradient(135deg, #1a1a2e, #16213e);
+        border-radius: 28px;
+        padding: 24px;
+        max-width: 380px;
+        width: 90%;
+        border: 1px solid rgba(255,215,0,0.3);
+        animation: scaleIn 0.3s ease;
+    }
+    
+    .game2048-modal-header {
+        display: flex;
         justify-content: space-between;
-        padding: 15px 20px;
-        cursor: pointer;
-        background: rgba(0,0,0,0.2);
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    
+    .game2048-modal-header h3 {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #feca57;
+    }
+    
+    .game2048-modal-header button {
+        background: none;
+        border: none;
         color: white;
-        font-weight: 600;
+        cursor: pointer;
+        padding: 5px;
     }
     
-    .game2048-howto-header span:first-child {
-        font-size: 20px;
-    }
-    
-    .game2048-howto-content {
-        max-height: 0;
-        overflow: hidden;
-        transition: max-height 0.4s ease;
-    }
-    
-    .game2048-howto-content.show {
-        max-height: 600px;
-    }
-    
-    .game2048-howto-grid {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 12px;
-        padding: 16px;
-    }
-    
-    .game2048-howto-card {
-        background: rgba(255,255,255,0.1);
-        border-radius: 12px;
-        padding: 12px;
-        text-align: center;
-    }
-    
-    .game2048-howto-icon {
-        font-size: 28px;
-        margin-bottom: 8px;
-    }
-    
-    .game2048-howto-card h4 {
-        color: #feca57;
-        font-size: 13px;
-        margin-bottom: 8px;
-    }
-    
-    .game2048-howto-card p {
+    .game2048-modal-body p {
         color: rgba(255,255,255,0.8);
-        font-size: 11px;
-        line-height: 1.4;
+        margin-bottom: 20px;
+        font-size: 14px;
     }
     
-    .gold {
-        color: #feca57;
+    .game2048-presets {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 20px;
+        justify-content: center;
+    }
+    
+    .game2048-preset-btn {
+        padding: 10px 20px;
+        background: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 40px;
+        color: white;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.2s;
+    }
+    
+    .game2048-preset-btn.active {
+        background: linear-gradient(135deg, #feca57, #ff8c42);
+        color: #1a1a2e;
+        border-color: transparent;
+    }
+    
+    .game2048-preset-btn:hover {
+        background: rgba(255,255,255,0.2);
+    }
+    
+    .game2048-custom-input {
+        display: flex;
+        gap: 10px;
+    }
+    
+    .game2048-custom-input input {
+        flex: 1;
+        padding: 12px 16px;
+        background: rgba(0,0,0,0.4);
+        border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 40px;
+        color: white;
+        font-size: 16px;
+        outline: none;
+    }
+    
+    .game2048-custom-input input:focus {
+        border-color: #feca57;
+    }
+    
+    .game2048-custom-input button {
+        padding: 12px 24px;
+        background: linear-gradient(135deg, #feca57, #ff8c42);
+        border: none;
+        border-radius: 40px;
+        font-weight: 700;
+        color: #1a1a2e;
+        cursor: pointer;
     }
     
     /* Overlay */
@@ -847,8 +1040,8 @@ const css = `
         left: 0;
         right: 0;
         bottom: 0;
-        background: rgba(0, 0, 0, 0.85);
-        backdrop-filter: blur(8px);
+        background: rgba(0,0,0,0.9);
+        backdrop-filter: blur(12px);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -861,87 +1054,96 @@ const css = `
         to { opacity: 1; }
     }
     
+    @keyframes scaleIn {
+        from { transform: scale(0.9); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
+    }
+    
     .game2048-overlay-card {
         background: linear-gradient(135deg, #1a1a2e, #16213e);
-        border-radius: 24px;
-        padding: 28px;
+        border-radius: 32px;
+        padding: 32px;
         text-align: center;
-        max-width: 320px;
+        max-width: 360px;
         width: 90%;
         border: 2px solid;
         animation: scaleIn 0.3s ease;
-    }
-    
-    @keyframes scaleIn {
-        from {
-            transform: scale(0.9);
-            opacity: 0;
-        }
-        to {
-            transform: scale(1);
-            opacity: 1;
-        }
+        box-shadow: 0 30px 60px rgba(0,0,0,0.5);
     }
     
     .game2048-overlay-icon {
-        font-size: 56px;
-        margin-bottom: 12px;
+        font-size: 64px;
+        margin-bottom: 16px;
     }
     
     .game2048-overlay-title {
-        font-size: 24px;
+        font-size: 28px;
         font-weight: 800;
-        margin-bottom: 12px;
+        margin-bottom: 16px;
     }
     
     .game2048-overlay-text {
-        color: rgba(255,255,255,0.7);
-        margin-bottom: 16px;
+        color: rgba(255,255,255,0.8);
+        margin-bottom: 20px;
         font-size: 14px;
+        line-height: 1.5;
     }
     
     .game2048-overlay-stats {
         background: rgba(255,255,255,0.1);
-        border-radius: 12px;
-        padding: 10px;
-        margin-bottom: 16px;
+        border-radius: 16px;
+        padding: 12px;
+        margin-bottom: 20px;
         display: flex;
         justify-content: space-around;
         font-weight: 600;
         color: #feca57;
+        font-size: 14px;
     }
     
     .game2048-overlay-small {
-        font-size: 11px;
+        font-size: 12px;
         color: rgba(255,255,255,0.5);
-        margin-bottom: 16px;
+        margin-bottom: 20px;
     }
     
     .game2048-overlay-btn {
         width: 100%;
-        padding: 12px;
-        background: linear-gradient(135deg, #feca57, #ff6b6b);
+        padding: 14px;
+        background: linear-gradient(135deg, #feca57, #ff8c42);
         border: none;
-        border-radius: 12px;
+        border-radius: 40px;
         font-size: 16px;
         font-weight: 700;
         color: #1a1a2e;
         cursor: pointer;
+        margin-bottom: 10px;
+        transition: transform 0.2s;
+    }
+    
+    .game2048-overlay-btn.secondary {
+        background: rgba(255,255,255,0.1);
+        color: white;
+        margin-bottom: 0;
+    }
+    
+    .game2048-overlay-btn:hover {
+        transform: translateY(-2px);
     }
     
     /* Mobile Responsive */
     @media (max-width: 550px) {
         .game2048-logo-2048 {
-            font-size: 36px;
+            font-size: 38px;
         }
         
         .game2048-score-card {
-            padding: 5px 12px;
-            min-width: 65px;
+            padding: 6px 14px;
+            min-width: 70px;
         }
         
         .game2048-score-value {
-            font-size: 20px;
+            font-size: 22px;
         }
         
         .game2048-row {
@@ -949,45 +1151,36 @@ const css = `
         }
         
         .game2048-board {
-            padding: 8px;
+            padding: 12px;
         }
         
         .game2048-cell-value {
-            font-size: 24px !important;
-        }
-        
-        .game2048-instructions {
-            display: none;
+            font-size: 22px !important;
         }
         
         .game2048-mobile-controls {
             display: flex;
         }
         
-        .game2048-howto-grid {
-            grid-template-columns: 1fr;
+        .game2048-arrow-btn {
+            width: 60px;
+            padding: 12px;
         }
         
-        .game2048-arrow-btn {
-            width: 55px;
-            font-size: 24px;
-            padding: 10px;
+        .game2048-progress-text {
+            font-size: 9px;
+            white-space: nowrap;
+        }
+        
+        .game2048-target-badge {
+            font-size: 12px;
+            padding: 4px 12px;
         }
     }
     
-    /* Desktop hover effects */
     @media (min-width: 551px) {
-        .game2048-arrow-btn {
-            display: none;
-        }
-        
         .game2048-mobile-controls {
             display: none;
-        }
-        
-        .game2048-new-btn:hover {
-            transform: scale(1.01);
-            filter: brightness(1.05);
         }
     }
 `;

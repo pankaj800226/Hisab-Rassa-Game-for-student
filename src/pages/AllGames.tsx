@@ -1,17 +1,7 @@
 import { useState } from "react";
-import hisab from "../gamesImg/hisab.png";
-import puzzel from "../gamesImg/puzzel.png";
-import memory from '../gamesImg/memorygames.png';
-import tictactoe from '../gamesImg/tictactoe.png';
-import buirdgame from '../gamesImg/buirdgame.png';
-import sudoku from '../gamesImg/sudoku.png';
-import numbergame from '../gamesImg/numbergames.png';
-import emojigame from '../gamesImg/emojigame.png';
-import mathgame from '../gamesImg/mathgame.png';
-import dicegame from '../gamesImg/dicegame.png';
-
-
 import { Link } from "react-router-dom";
+import LazyImage from "../components/LazyImage";
+import { gameImages } from "../util/images";
 
 const games = [
   {
@@ -21,7 +11,7 @@ const games = [
     emoji: "🧮",
     color: "#FF6B35",
     glow: "rgba(255,107,53,0.35)",
-    img: hisab,
+    img: gameImages.hisab,
     desc: "Do-khiladi ka zabardast number battle! Fastest math wins the tug.",
     players: "2 Players",
     difficulty: ["Medium", "Low", "Hard"],
@@ -34,7 +24,7 @@ const games = [
     emoji: "🧩",
     color: "#A259FF",
     glow: "rgba(162,89,255,0.35)",
-    img: puzzel,
+    img: gameImages.puzzel,
     desc: "Socho, samjho, jeeto! Har puzzle ek naya challenge hai.",
     players: "1 Player",
     difficulty: ["Medium", "Low", "Hard"],
@@ -47,7 +37,7 @@ const games = [
     emoji: "🧠",
     color: "#FF4D6D",
     glow: "rgba(255,77,109,0.35)",
-    img: memory,
+    img: gameImages.memory,
     desc: "Yaadasht ka imtihan! Find the matching pairs to win.",
     players: "1 Player",
     difficulty: ["Medium", "Low", "Hard"],
@@ -60,7 +50,7 @@ const games = [
     emoji: "❌",
     color: "#4CC9F0",
     glow: "rgba(76,201,240,0.35)",
-    img: tictactoe,
+    img: gameImages.tictactoe,
     desc: "The ultimate X vs O battle. Can you get three in a row?",
     players: "2 Players",
     difficulty: ["Medium", "Low", "Hard"],
@@ -73,7 +63,7 @@ const games = [
     emoji: "🐦",
     color: "#FFB703",
     glow: "rgba(255,183,3,0.35)",
-    img: buirdgame,
+    img: gameImages.flappy,
     desc: "Tap to fly and dodge the pipes. How far can you go?",
     players: "1 Player",
     difficulty: ["Medium", "Low", "Hard"],
@@ -86,7 +76,7 @@ const games = [
     emoji: "🔢",
     color: "#2EC4B6",
     glow: "rgba(46,196,182,0.35)",
-    img: sudoku,
+    img: gameImages.sudoku,
     desc: "Fill the grid with logic. No math, just pure brain power.",
     players: "1 Player",
     difficulty: ["Medium", "Low", "Hard"],
@@ -99,7 +89,7 @@ const games = [
     emoji: "🎯",
     color: "#7209B7",
     glow: "rgba(114,9,183,0.35)",
-    img: numbergame,
+    img: gameImages.number,
     desc: "Master the numbers and beat the high score.",
     players: "1 Player",
     difficulty: ["Medium", "Low", "Hard"],
@@ -112,7 +102,7 @@ const games = [
     emoji: "👾",
     color: "#FF6B35",
     glow: "rgba(255,107,53,0.35)",
-    img: emojigame,
+    img: gameImages.emoji,
     desc: "Bounce the emoji and score points!",
     players: "1 Player",
     difficulty: ["Medium", "Low", "Hard"],
@@ -125,7 +115,7 @@ const games = [
     emoji: "♟️",
     color: "#2EC4B6",
     glow: "rgba(46,196,182,0.35)",
-    img: mathgame,
+    img: gameImages.math,
     desc: "Fill the grid with logic. No math, just pure brain power.",
     players: "1 Player",
     difficulty: ["Medium", "Low", "Hard"],
@@ -138,13 +128,13 @@ const games = [
     emoji: "🎲",
     color: "#2EC4B6",
     glow: "rgba(46,196,182,0.35)",
-    img: dicegame,
+    img: gameImages.dice,
     desc: "Dice game",
     players: "1 Player",
     difficulty: ["Medium", "Low", "Hard"],
     path: "/dicegame",
   },
-  
+
 ];
 
 const GameCard = ({ game, index }: { game: (typeof games)[0]; index: number }) => {
@@ -159,7 +149,13 @@ const GameCard = ({ game, index }: { game: (typeof games)[0]; index: number }) =
     >
       <div className="ag-card-line" style={{ background: game.color }} />
       <div className="ag-img-wrap">
-        <img src={game.img} alt={game.name} className="ag-img" />
+        {/* <LazyImage loader={game.img} src={game.img} alt={game.name} className="ag-img" /> */}
+        <LazyImage
+          loader={game.img}
+          alt={game.name}
+          className="ag-img"
+          priority={index < 2}
+        />
         <div className="ag-img-overlay" style={{ opacity: hovered ? 1 : 0 }} />
         <div className="ag-emoji" style={{ background: `${game.color}22`, borderColor: `${game.color}50` }}>
           {game.emoji}
