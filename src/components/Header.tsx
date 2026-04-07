@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import logo from "../assets/apnaailogo.png";
-import { Menu, X, ChevronRight, LogOut, Sparkles, Zap, Home, User, Brain } from "lucide-react";
+import { Menu, X, ChevronRight, LogOut, Sparkles, Zap, Home, User } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const menuItems = [
@@ -53,12 +53,12 @@ const Header = () => {
 
                     {/* ── Logo ── */}
                     <Link to="/" className="gh-logo">
-                        <div className="gh-logo-orb">
+                        {/* <div className="gh-logo-orb">
                             {logo
                                 ? <img src={logo} alt="ApnaAI" className="gh-logo-img" />
                                 : <Brain size={15} />}
                             <div className="gh-logo-orb-ring" />
-                        </div>
+                        </div> */}
                         <div className="gh-logo-text">
                             <span className="gh-logo-name">Arena</span>
                             <span className="gh-logo-dot">●</span>

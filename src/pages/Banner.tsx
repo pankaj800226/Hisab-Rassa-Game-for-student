@@ -65,6 +65,15 @@ const games = [
         bg: "#0d001a",
         desc: "Number Games is a classic game",
     },
+    {
+        id: 8,
+        title: "Emoji Pong",
+        emoji: "👾",
+        tag: "Emoji Pong",
+        color: "#A259FF",
+        bg: "#0d001a",
+        desc: "Emoji Pong is a classic game",
+    }
 ];
 
 const FloatingOrb = ({
