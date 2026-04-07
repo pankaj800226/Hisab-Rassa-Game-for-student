@@ -5,7 +5,7 @@ body {
   background-color: #030407;
   -webkit-font-smoothing: antialiased;
   color: white;
-  user-select: none;
+  /* user-select: none; */
 }
 
 ::-webkit-scrollbar {

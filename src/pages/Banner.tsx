@@ -73,6 +73,15 @@ const games = [
         color: "#A259FF",
         bg: "#0d001a",
         desc: "Emoji Pong is a classic game",
+    },
+    {
+        id: 9,
+        title: "Math Game",
+        emoji: "♟️",
+        tag: "Math Game",
+        color: "#A259FF",
+        bg: "#0d001a",
+        desc: "Math Game is a classic game",
     }
 ];
 

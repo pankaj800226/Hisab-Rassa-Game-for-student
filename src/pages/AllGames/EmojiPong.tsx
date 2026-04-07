@@ -10,7 +10,7 @@ const EMOJI_OPTIONS = [
     { emoji: '🔥', label: 'Fire', color: '#FF4D4D' },
     { emoji: '⚡', label: 'Zap', color: '#00E5FF' },
     { emoji: '💎', label: 'Diamond', color: '#A259FF' },
-    { emoji: '🚀', label: 'Rocket', color: '#39FF14' },
+    { emoji: '❤️‍🩹', label: 'Heart', color: '#39FF14' },
     { emoji: '🎯', label: 'Target', color: '#FF4D8D' },
     { emoji: '👾', label: 'Alien', color: '#FFD700' },
     { emoji: '🏆', label: 'Trophy', color: '#FFB800' },
@@ -23,6 +23,7 @@ const BG_SOLIDS = [
     { label: 'Rose', value: '#1a080f' },
     { label: 'Ocean', value: '#061020' },
     { label: 'Ash', value: '#111114' },
+    { label: 'Pink', value: 'pink' },
 ];
 
 const BG_GRADIENTS = [
@@ -59,14 +60,13 @@ const EmojiGame: React.FC = () => {
     const emojiPos = useRef<Position>({ x: 160, y: 120 });
     const velocity = useRef<Velocity>({ dx: 4.5, dy: 4.5 });
     const paddleX = useRef<number>(0);
-    const targetPaddleX = useRef<number>(0); // For smooth interpolation
+    const targetPaddleX = useRef<number>(0);
     const rafRef = useRef<number>(0);
     const paddleRafRef = useRef<number>(0);
     const scoreRef = useRef(0);
     const comboRef = useRef(0);
     const popupIdRef = useRef(0);
     const gameActive = useRef(false);
-    const isDragging = useRef(false);
 
     useEffect(() => { scoreRef.current = score; }, [score]);
     useEffect(() => { comboRef.current = combo; }, [combo]);
@@ -82,6 +82,28 @@ const EmojiGame: React.FC = () => {
         setTimeout(() => setScoreFlash(false), 200);
     };
 
+    // Lock body scroll when game is active
+    useEffect(() => {
+        if (phase === 'play') {
+            document.body.style.overflow = 'hidden';
+            document.body.style.position = 'fixed';
+            document.body.style.width = '100%';
+            document.body.style.height = '100%';
+        } else {
+            document.body.style.overflow = '';
+            document.body.style.position = '';
+            document.body.style.width = '';
+            document.body.style.height = '';
+        }
+
+        return () => {
+            document.body.style.overflow = '';
+            document.body.style.position = '';
+            document.body.style.width = '';
+            document.body.style.height = '';
+        };
+    }, [phase]);
+
     // Smooth paddle animation loop
     useEffect(() => {
         if (phase !== 'play') {
@@ -90,11 +112,8 @@ const EmojiGame: React.FC = () => {
         }
 
         const smoothPaddle = () => {
-            // Smooth interpolation (easing)
             const diff = targetPaddleX.current - paddleX.current;
-            paddleX.current += diff * 0.28; // Smooth follow
-
-            // Force re-render for paddle position
+            paddleX.current += diff * 0.28;
             forceRender(n => n + 1);
             paddleRafRef.current = requestAnimationFrame(smoothPaddle);
         };
@@ -172,14 +191,12 @@ const EmojiGame: React.FC = () => {
                 x + EMOJI_SIZE > paddleX.current &&
                 x < paddleX.current + paddleW
             ) {
-                // Hit position relative to paddle center (affects angle)
                 const hitPos = (x + EMOJI_SIZE / 2) - (paddleX.current + paddleW / 2);
                 const angleFactor = hitPos / (paddleW / 2) * 0.7;
 
                 dy = -Math.abs(dy);
                 dx += angleFactor * 2.5;
 
-                // Clamp speeds
                 dx = Math.min(Math.max(dx, -12), 12);
                 dy = Math.min(Math.max(dy, -12), 12);
 
@@ -223,60 +240,74 @@ const EmojiGame: React.FC = () => {
         };
     }, [phase, highScore]);
 
-    // ── Paddle move handler with smooth target update ─────────────────
-    const handleMove = useCallback((clientX: number) => {
-        if (phase !== 'play') return;
-        const paddleW = Math.min(110 + comboRef.current * 1.2, 180);
-        let next = clientX - paddleW / 2;
-        const maxX = window.innerWidth - paddleW;
-        next = Math.max(0, Math.min(next, maxX));
-        targetPaddleX.current = next; // Update target, animation loop will smooth it
-    }, [phase]);
-
-    // Mouse events
-    const onMouseMove = useCallback((e: React.MouseEvent) => {
-        e.preventDefault();
-        handleMove(e.clientX);
-    }, [handleMove]);
-
-    const onMouseDown = useCallback((e: React.MouseEvent) => {
-        e.preventDefault();
-        isDragging.current = true;
-        handleMove(e.clientX);
-    }, [handleMove]);
-
-    const onMouseUp = useCallback(() => {
-        isDragging.current = false;
-    }, []);
-
-    // Touch events
-    const onTouchMove = useCallback((e: React.TouchEvent) => {
-        e.preventDefault();
-        if (e.touches.length > 0) {
-            handleMove(e.touches[0].clientX);
-        }
-    }, [handleMove]);
-
-    const onTouchStart = useCallback((e: React.TouchEvent) => {
-        e.preventDefault();
-        if (e.touches.length > 0) {
-            handleMove(e.touches[0].clientX);
-        }
-    }, [handleMove]);
-
-    const onTouchEnd = useCallback((e: React.TouchEvent) => {
-        e.preventDefault();
-    }, []);
-
-    // Add global mouse up listener
+    // ── Global event handlers for paddle control ─────────────────────
     useEffect(() => {
-        window.addEventListener('mouseup', onMouseUp);
-        window.addEventListener('touchend', onTouchEnd as any);
-        return () => {
-            window.removeEventListener('mouseup', onMouseUp);
-            window.removeEventListener('touchend', onTouchEnd as any);
+        if (phase !== 'play') return;
+
+        const handleMove = (e: MouseEvent | TouchEvent) => {
+            e.preventDefault();
+            let clientX: number;
+
+            if ('touches' in e) {
+                if (e.touches.length > 0) {
+                    clientX = e.touches[0].clientX;
+                } else {
+                    return;
+                }
+            } else {
+                clientX = e.clientX;
+            }
+
+            const paddleW = Math.min(110 + comboRef.current * 1.2, 180);
+            let next = clientX - paddleW / 2;
+            const maxX = window.innerWidth - paddleW;
+            next = Math.max(0, Math.min(next, maxX));
+            targetPaddleX.current = next;
         };
-    }, [onMouseUp, onTouchEnd]);
+
+        const handleStart = (e: MouseEvent | TouchEvent) => {
+            e.preventDefault();
+            let clientX: number;
+
+            if ('touches' in e) {
+                if (e.touches.length > 0) {
+                    clientX = e.touches[0].clientX;
+                } else {
+                    return;
+                }
+            } else {
+                clientX = e.clientX;
+            }
+
+            const paddleW = Math.min(110 + comboRef.current * 1.2, 180);
+            let next = clientX - paddleW / 2;
+            const maxX = window.innerWidth - paddleW;
+            next = Math.max(0, Math.min(next, maxX));
+            targetPaddleX.current = next;
+        };
+
+        const handleEnd = (e: MouseEvent | TouchEvent) => {
+            e.preventDefault();
+            // Optional: Add any end logic here
+        };
+
+        // Add event listeners to window for better mobile support
+        window.addEventListener('mousemove', handleMove);
+        window.addEventListener('mouseup', handleEnd);
+        window.addEventListener('mousedown', handleStart);
+        window.addEventListener('touchmove', handleMove, { passive: false });
+        window.addEventListener('touchstart', handleStart, { passive: false });
+        window.addEventListener('touchend', handleEnd);
+
+        return () => {
+            window.removeEventListener('mousemove', handleMove);
+            window.removeEventListener('mouseup', handleEnd);
+            window.removeEventListener('mousedown', handleStart);
+            window.removeEventListener('touchmove', handleMove);
+            window.removeEventListener('touchstart', handleStart);
+            window.removeEventListener('touchend', handleEnd);
+        };
+    }, [phase]);
 
     const paddleW = Math.min(110 + combo * 1.2, 180);
     const accent = selectedEmoji.color;
@@ -375,7 +406,7 @@ const EmojiGame: React.FC = () => {
                     <button className="eg-play-btn" style={{ background: accent }} onClick={startGame}>
                         ▶ Play Now
                     </button>
-                    <p className="eg-hint">👆 Move finger or mouse to slide paddle (smooth!)</p>
+                    <p className="eg-hint">👆 Move finger or mouse to slide paddle</p>
                 </div>
             </div>
         </>
@@ -432,10 +463,6 @@ const EmojiGame: React.FC = () => {
             <div
                 className="eg-root"
                 style={{ background: bgValue, cursor: 'none', touchAction: 'none' }}
-                onMouseMove={onMouseMove}
-                onMouseDown={onMouseDown}
-                onTouchMove={onTouchMove}
-                onTouchStart={onTouchStart}
             >
                 <div className="eg-grid-bg" />
 
@@ -491,7 +518,6 @@ const EmojiGame: React.FC = () => {
                         width: paddleW,
                         background: `linear-gradient(90deg,${accent}cc,${accent})`,
                         boxShadow: `0 0 18px ${accent}80, 0 0 32px ${accent}40`,
-                        transition: 'none', // No CSS transition, we use RAF for smoothness
                     }}
                 />
 
@@ -514,7 +540,9 @@ const css = `
     font-family: 'DM Sans', sans-serif;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
+    touch-action: none;
   }
+  
   .eg-grid-bg {
     position: absolute; inset: 0; pointer-events: none; z-index: 0;
     background-image:

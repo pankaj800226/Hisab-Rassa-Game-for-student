@@ -13,6 +13,12 @@ const FlappyBird = React.lazy(() => import('./pages/AllGames/FlappyBird'))
 const Sudoku = React.lazy(() => import('./pages/AllGames/Sudoku'))
 const NumberGames = React.lazy(() => import('./pages/AllGames/NumberGames'))
 const EmojiPong = React.lazy(() => import('./pages/AllGames/EmojiPong'))
+const MathGames = React.lazy(() => import('./pages/AllGames/MathGames'))
+const DiceGame = React.lazy(() => import('./pages/AllGames/DiceGame'))
+
+
+
+
 
 
 const App = () => {
@@ -32,6 +38,8 @@ const App = () => {
           <Route path="/sudoku" element={<Sudoku />} />
           <Route path="/numbergame" element={<NumberGames />} />
           <Route path="/emojipong" element={<EmojiPong />} />
+          <Route path="/mathgame" element={<MathGames />} />
+          <Route path="/dicegame" element={<DiceGame />} />
         </Routes>
       </Suspense>
     </Router>

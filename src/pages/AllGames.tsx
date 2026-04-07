@@ -6,7 +6,10 @@ import tictactoe from '../gamesImg/tictactoe.png';
 import buirdgame from '../gamesImg/buirdgame.png';
 import sudoku from '../gamesImg/sudoku.png';
 import numbergame from '../gamesImg/numbergames.png';
-import emojigame from '../gamesImg/emojigame.png'
+import emojigame from '../gamesImg/emojigame.png';
+import mathgame from '../gamesImg/mathgame.png';
+import dicegame from '../gamesImg/dicegame.png';
+
 
 import { Link } from "react-router-dom";
 
@@ -114,7 +117,34 @@ const games = [
     players: "1 Player",
     difficulty: ["Medium", "Low", "Hard"],
     path: "/emojipong",
-  }
+  },
+  {
+    id: 9,
+    name: "Math Game",
+    tag: "Math",
+    emoji: "♟️",
+    color: "#2EC4B6",
+    glow: "rgba(46,196,182,0.35)",
+    img: mathgame,
+    desc: "Fill the grid with logic. No math, just pure brain power.",
+    players: "1 Player",
+    difficulty: ["Medium", "Low", "Hard"],
+    path: "/mathgame",
+  },
+  {
+    id: 10,
+    name: "Dice Game",
+    tag: "Dice",
+    emoji: "🎲",
+    color: "#2EC4B6",
+    glow: "rgba(46,196,182,0.35)",
+    img: dicegame,
+    desc: "Dice game",
+    players: "1 Player",
+    difficulty: ["Medium", "Low", "Hard"],
+    path: "/dicegame",
+  },
+  
 ];
 
 const GameCard = ({ game, index }: { game: (typeof games)[0]; index: number }) => {
